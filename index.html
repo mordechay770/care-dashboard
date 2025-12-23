@@ -14,12 +14,18 @@ body {
 
 h1 {
   font-size: 52px;
-  margin-bottom: 20px;
+  margin-bottom: 10px;
 }
 
 #status {
   font-size: 40px;
-  margin-bottom: 30px;
+  margin-bottom: 10px;
+}
+
+#overflow {
+  font-size: 32px;
+  color: red;
+  margin-bottom: 20px;
 }
 
 .cups {
@@ -50,6 +56,7 @@ h1 {
   display: flex;
   justify-content: center;
   gap: 25px;
+  margin-bottom: 30px;
 }
 
 button {
@@ -61,8 +68,19 @@ button {
   color: white;
 }
 
-button:active {
-  background: #1e5ec0;
+h2 {
+  font-size: 36px;
+  margin-top: 40px;
+}
+
+.log {
+  font-size: 26px;
+  background: white;
+  margin: 10px auto;
+  padding: 12px;
+  width: 80%;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 </style>
 </head>
@@ -72,6 +90,7 @@ button:active {
 <h1>שתייה היום</h1>
 
 <div id="status"></div>
+<div id="overflow"></div>
 
 <div class="cups" id="cups"></div>
 
@@ -81,21 +100,34 @@ button:active {
   <button onclick="add(200)">200 מ״ל</button>
 </div>
 
+<h2>רישום שתייה</h2>
+<div id="log"></div>
+
 <script>
-const DAILY_LIMIT = 1500; // מכסה יומית
+const DAILY_LIMIT = 1500;
+
 let total = 0;
+let log = [];
 
 function render() {
   document.getElementById("status").innerText =
     total + " מתוך " + DAILY_LIMIT + " מ״ל";
 
+  const overflowAmount = total - DAILY_LIMIT;
+  document.getElementById("overflow").innerText =
+    overflowAmount > 0 ? "חריגה: " + overflowAmount + " מ״ל" : "";
+
+  renderCups();
+  renderLog();
+}
+
+function renderCups() {
   const cups = document.getElementById("cups");
   cups.innerHTML = "";
 
   const percent = total / DAILY_LIMIT;
   const overflow = total > DAILY_LIMIT;
 
-  // 5 כוסות רגילות
   for (let i = 0; i < 5; i++) {
     const cup = document.createElement("div");
     cup.className = "cup";
@@ -109,7 +141,6 @@ function render() {
     cups.appendChild(cup);
   }
 
-  // כוס חריגה אדומה
   if (overflow) {
     const extraCup = document.createElement("div");
     extraCup.className = "cup";
@@ -124,8 +155,32 @@ function render() {
   }
 }
 
+function renderLog() {
+  const box = document.getElementById("log");
+  box.innerHTML = "";
+
+  log.forEach(entry => {
+    const div = document.createElement("div");
+    div.className = "log";
+    div.innerText = `שתה ${entry.amount} מ״ל בשעה ${entry.time}`;
+    box.appendChild(div);
+  });
+}
+
 function add(amount) {
   total += amount;
+
+  const now = new Date();
+  const time =
+    now.getHours().toString().padStart(2,'0') + ":" +
+    now.getMinutes().toString().padStart(2,'0');
+
+  // תמיד מתווספת שורה
+  log.unshift({
+    amount: amount,
+    time: time
+  });
+
   render();
 }
 
