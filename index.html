@@ -122,6 +122,8 @@ h2 {
 <script>
 const CUP_SIZE = 200; // מ״ל לכוס רגילה
 const DAILY_LIMIT = 1000; // יעד יומי
+const WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs"; // <-- הכנס כאן את כתובת ה-Webhook שלך
+
 let total = 0;
 let log = [];
 
@@ -201,7 +203,22 @@ function add(amount) {
     now.getHours().toString().padStart(2,'0') + ":" +
     now.getMinutes().toString().padStart(2,'0');
 
+  const date = now.getFullYear() + "-" +
+               (now.getMonth()+1).toString().padStart(2,'0') + "-" +
+               now.getDate().toString().padStart(2,'0');
+
   log.unshift({ amount, time });
+
+  // שליחת Webhook
+  fetch(WEBHOOK_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      amount: amount,
+      date: date,
+      time: time
+    })
+  }).catch(err => console.error("Webhook failed:", err));
 
   render();
 }
