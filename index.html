@@ -48,21 +48,29 @@ let DAILY_LIMIT = 1000;
 let total = 0;
 let log = [];
 
-const INIT_WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs";  // קריאה ראשונית
-const UPDATE_WEBHOOK_URL = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";  // עדכוני שתייה
+const INIT_WEBHOOK_URL = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";
+const UPDATE_WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs";
 
-// קריאה ראשונית בעת טעינת הדף
-window.addEventListener('load', () => {
-  fetch(INIT_WEBHOOK_URL)
-    .then(res => res.json())
-    .then(data => {
-      total = data.totalDrank || 0;
-      DAILY_LIMIT = data.dailyLimit || 1000;
-      log = data.log || [];
-      render();
-    })
-    .catch(err => console.error("Failed to fetch initial data:", err));
-});
+// קריאה ראשונית
+async function initData() {
+  try {
+    const res = await fetch(INIT_WEBHOOK_URL);
+    if (!res.ok) throw new Error("Network response was not ok");
+    const data = await res.json();
+    if (!data) throw new Error("No data returned from webhook");
+
+    total = data.totalDrank || 0;
+    DAILY_LIMIT = data.dailyLimit || 1000;
+    log = data.log || [];
+    render();
+  } catch (err) {
+    console.error("Failed to fetch initial data:", err);
+    // במקרה של כשל, נשאר עם הערכים הקיימים ונמשיך
+    render();
+  }
+}
+
+window.addEventListener('load', initData);
 
 function render() {
   document.getElementById("status").innerText = total + " מתוך " + DAILY_LIMIT + " מ״ל";
@@ -83,7 +91,6 @@ function renderCups() {
     const cup = document.createElement("div");
     cup.className = "cup";
 
-    // פסי מדידה כל 10 מ״ל
     for (let y = 10; y < CUP_SIZE; y += 10) {
       const mark = document.createElement("div");
       mark.className = "marker";
@@ -91,7 +98,6 @@ function renderCups() {
       cup.appendChild(mark);
     }
 
-    // תווית גודל הכוס
     const label = document.createElement("div");
     label.style.position = "absolute";
     label.style.bottom = "-25px";
@@ -105,6 +111,7 @@ function renderCups() {
     fill.className = "fill";
     fill.style.height = Math.max(0, Math.min(1, percent * numCups - i)) * 100 + "%";
     cup.appendChild(fill);
+
     cups.appendChild(cup);
   }
 
@@ -117,7 +124,6 @@ function renderCups() {
     redFill.style.background = "red";
     extraCup.appendChild(redFill);
 
-    // תווית לכוס החריגה
     const label = document.createElement("div");
     label.style.position = "absolute";
     label.style.bottom = "-25px";
