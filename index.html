@@ -2,106 +2,115 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>Care Dashboard</title>
-<meta http-equiv="Content-Security-Policy"
-      content="default-src 'self'; connect-src https://hook.make.com;">
+<title>עוגן מציאות</title>
 
 <style>
-body { font-family: Arial; font-size: 24px; background:#f4f6f8; }
-.alert { color:red; font-weight:bold; }
-.cups { display:flex; gap:10px; }
-.cup { width:50px; height:100px; border:2px solid #000; position:relative; }
-.fill { position:absolute; bottom:0; width:100%; background:#4da6ff; }
-button { font-size:22px; padding:10px 20px; }
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f4f7;
+  text-align: center;
+  padding: 30px;
+}
+
+h1 {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+#drinkText {
+  font-size: 36px;
+  margin: 20px 0;
+}
+
+.cups {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin: 30px 0;
+}
+
+.cup {
+  width: 80px;
+  height: 160px;
+  border: 4px solid #333;
+  border-radius: 0 0 16px 16px;
+  position: relative;
+  background: white;
+}
+
+.fill {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: #4da6ff;
+  transition: height 0.4s;
+}
+
+.alert .fill {
+  background: red;
+}
+
+.buttons {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+button {
+  font-size: 32px;
+  padding: 20px 30px;
+  border-radius: 12px;
+  border: none;
+  background: #2e7df6;
+  color: white;
+}
+
+button:active {
+  background: #1e5ec0;
+}
 </style>
 </head>
 
 <body>
 
-<h1>מצב יומי</h1>
+<h1>שתייה היום</h1>
 
-<div id="drinkStatus"></div>
+<div id="drinkText"></div>
+
 <div class="cups" id="cups"></div>
 
-<button onclick="drink(50)">50 מ״ל</button>
-<button onclick="drink(100)">100 מ״ל</button>
-<button onclick="drink(200)">200 מ״ל</button>
-
-<h2>משימות</h2>
-<div id="tasks"></div>
+<div class="buttons">
+  <button onclick="addDrink(50)">50 מ״ל</button>
+  <button onclick="addDrink(100)">100 מ״ל</button>
+  <button onclick="addDrink(200)">200 מ״ל</button>
+</div>
 
 <script>
 const CONFIG_URL = "config.json";
-const REPORT_WEBHOOK = "https://hook.make.com/XXXX";
+const WEBHOOK = "https://hook.make.com/XXXX";
 
-let config;
+let dailyLimit = 1500;
+let totalDrank = 0;
 
 async function loadConfig() {
-  try {
-    const res = await fetch(CONFIG_URL + "?t=" + Date.now());
-    config = await res.json();
-    render();
-  } catch {
-    document.body.innerHTML = "<h2>שגיאת טעינה</h2>";
-  }
+  const res = await fetch(CONFIG_URL + "?t=" + Date.now());
+  const data = await res.json();
+  dailyLimit = data.dailyLimit;
+  totalDrank = data.totalDrank;
+  render();
 }
 
 function render() {
-  renderWater();
-  renderTasks();
-}
+  document.getElementById("drinkText").innerText =
+    `${totalDrank} מתוך ${dailyLimit} מ״ל`;
 
-function renderWater() {
-  const percent = config.totalDrank / config.dailyLimit;
   const cups = document.getElementById("cups");
   cups.innerHTML = "";
 
-  for (let i=0;i<5;i++) {
-    const c = document.createElement("div");
-    c.className="cup";
-    const f = document.createElement("div");
-    f.className="fill";
-    f.style.height = Math.max(0, Math.min(1, percent*5 - i)) * 100 + "%";
-    c.appendChild(f);
-    cups.appendChild(c);
-  }
+  const percent = totalDrank / dailyLimit;
+  const alert = totalDrank > dailyLimit;
 
-  const status = document.getElementById("drinkStatus");
-  status.innerText = `${config.totalDrank} / ${config.dailyLimit} מ״ל`;
-  if (config.totalDrank > config.dailyLimit) status.className="alert";
-}
-
-function renderTasks() {
-  const box = document.getElementById("tasks");
-  box.innerHTML="";
-  config.tasks.forEach(t => {
-    const d = document.createElement("div");
-    const diff = new Date(t.time) - new Date();
-    d.innerText = `${t.name} – ${format(diff)}`;
-    box.appendChild(d);
-  });
-}
-
-function format(ms) {
-  if (ms<=0) return "עכשיו";
-  const s = Math.floor(ms/1000);
-  const h = Math.floor(s/3600);
-  const m = Math.floor((s%3600)/60);
-  return `${h}:${m.toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
-}
-
-async function drink(amount) {
-  await fetch(REPORT_WEBHOOK,{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({ type:"drink", amount, time:new Date().toISOString() })
-  });
-  loadConfig();
-}
-
-loadConfig();
-setInterval(loadConfig,60000);
-</script>
-
-</body>
-</html>
+  for (let i = 0; i < 5; i++) {
+    const cup = document.createElement("div");
+    cup.c
