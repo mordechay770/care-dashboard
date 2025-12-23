@@ -48,8 +48,8 @@ let DAILY_LIMIT = 1000;
 let total = 0;
 let log = [];
 
-const INIT_WEBHOOK_URL = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";  // קריאה ראשונית לקבלת dailyLimit, totalDrank והיסטוריה
-const UPDATE_WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs";  // עדכוני שתייה
+const INIT_WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs";  // קריאה ראשונית
+const UPDATE_WEBHOOK_URL = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";  // עדכוני שתייה
 
 // קריאה ראשונית בעת טעינת הדף
 window.addEventListener('load', () => {
@@ -58,7 +58,7 @@ window.addEventListener('load', () => {
     .then(data => {
       total = data.totalDrank || 0;
       DAILY_LIMIT = data.dailyLimit || 1000;
-      log = data.log || [];  // כאן נטען ההיסטוריה מהשרת
+      log = data.log || [];
       render();
     })
     .catch(err => console.error("Failed to fetch initial data:", err));
@@ -82,12 +82,25 @@ function renderCups() {
   for (let i = 0; i < numCups; i++) {
     const cup = document.createElement("div");
     cup.className = "cup";
+
+    // פסי מדידה כל 10 מ״ל
     for (let y = 10; y < CUP_SIZE; y += 10) {
       const mark = document.createElement("div");
       mark.className = "marker";
       mark.style.bottom = (y / CUP_SIZE * 100) + "%";
       cup.appendChild(mark);
     }
+
+    // תווית גודל הכוס
+    const label = document.createElement("div");
+    label.style.position = "absolute";
+    label.style.bottom = "-25px";
+    label.style.width = "100%";
+    label.style.textAlign = "center";
+    label.style.fontWeight = "bold";
+    label.innerText = "200 מ״ל";
+    cup.appendChild(label);
+
     const fill = document.createElement("div");
     fill.className = "fill";
     fill.style.height = Math.max(0, Math.min(1, percent * numCups - i)) * 100 + "%";
@@ -103,6 +116,17 @@ function renderCups() {
     redFill.style.height = "100%";
     redFill.style.background = "red";
     extraCup.appendChild(redFill);
+
+    // תווית לכוס החריגה
+    const label = document.createElement("div");
+    label.style.position = "absolute";
+    label.style.bottom = "-25px";
+    label.style.width = "100%";
+    label.style.textAlign = "center";
+    label.style.fontWeight = "bold";
+    label.innerText = "200 מ״ל";
+    extraCup.appendChild(label);
+
     cups.appendChild(extraCup);
   }
 }
