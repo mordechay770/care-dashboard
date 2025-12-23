@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>שתייה היום</title>
-
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -11,95 +10,20 @@ body {
   text-align: center;
   padding: 30px;
 }
-
-h1 {
-  font-size: 52px;
-  margin-bottom: 10px;
-}
-
-#instruction {
-  font-size: 28px;
-  font-weight: bold;
-  margin-bottom: 20px;
-  color: #1a1a1a;
-}
-
-#status {
-  font-size: 40px;
-  margin-bottom: 10px;
-}
-
-#overflow {
-  font-size: 32px;
-  color: red;
-  margin-bottom: 20px;
-}
-
-.cups {
-  display: flex;
-  justify-content: center;
-  gap: 25px;
-  margin-bottom: 40px;
-}
-
-.cup {
-  width: 90px;
-  height: 180px;
-  border: 6px solid #000;
-  border-radius: 0 0 25px 25px;
-  background: white;
-  position: relative;
-}
-
-.fill {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  background: #4da6ff;
-  transition: height 0.3s;
-}
-
-.marker {
-  position: absolute;
-  width: 100%;
-  height: 2px;
-  background: #aaa;
-  left: 0;
-}
-
-.buttons {
-  display: flex;
-  justify-content: center;
-  gap: 25px;
-  margin-bottom: 30px;
-}
-
-button {
-  font-size: 34px;
-  padding: 22px 36px;
-  border-radius: 16px;
-  border: none;
-  background: #2e7df6;
-  color: white;
-}
-
-h2 {
-  font-size: 36px;
-  margin-top: 40px;
-}
-
-.log {
-  font-size: 26px;
-  background: white;
-  margin: 10px auto;
-  padding: 12px;
-  width: 80%;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
+h1 { font-size: 52px; margin-bottom: 10px; }
+#instruction { font-size: 28px; font-weight: bold; margin-bottom: 20px; color: #1a1a1a; }
+#status { font-size: 40px; margin-bottom: 10px; }
+#overflow { font-size: 32px; color: red; margin-bottom: 20px; }
+.cups { display: flex; justify-content: center; gap: 25px; margin-bottom: 40px; }
+.cup { width: 90px; height: 180px; border: 6px solid #000; border-radius: 0 0 25px 25px; background: white; position: relative; }
+.fill { position: absolute; bottom: 0; width: 100%; background: #4da6ff; transition: height 0.3s; }
+.marker { position: absolute; width: 100%; height: 2px; background: #aaa; left: 0; }
+.buttons { display: flex; justify-content: center; gap: 25px; margin-bottom: 30px; }
+button { font-size: 34px; padding: 22px 36px; border-radius: 16px; border: none; background: #2e7df6; color: white; }
+h2 { font-size: 36px; margin-top: 40px; }
+.log { font-size: 26px; background: white; margin: 10px auto; padding: 12px; width: 80%; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 </style>
 </head>
-
 <body>
 
 <h1>שתייה היום</h1>
@@ -107,7 +31,6 @@ h2 {
 
 <div id="status"></div>
 <div id="overflow"></div>
-
 <div class="cups" id="cups"></div>
 
 <div class="buttons">
@@ -120,21 +43,30 @@ h2 {
 <div id="log"></div>
 
 <script>
-const CUP_SIZE = 200; // מ״ל לכוס רגילה
-const DAILY_LIMIT = 1000; // יעד יומי
-const WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs"; // <-- הכנס כאן את כתובת ה-Webhook שלך
-
+const CUP_SIZE = 200;
+let DAILY_LIMIT = 1000;
 let total = 0;
 let log = [];
 
+const INIT_WEBHOOK_URL = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";  // קריאה ראשונית
+const UPDATE_WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs";  // עדכוני שתייה
+
+// קריאה ראשונית לקבלת dailyLimit ו-totalDrank
+window.addEventListener('load', () => {
+  fetch(INIT_WEBHOOK_URL)
+    .then(res => res.json())
+    .then(data => {
+      total = data.totalDrank || 0;
+      DAILY_LIMIT = data.dailyLimit || 1000;
+      render();
+    })
+    .catch(err => console.error("Failed to fetch initial data:", err));
+});
+
 function render() {
-  document.getElementById("status").innerText =
-    total + " מתוך " + DAILY_LIMIT + " מ״ל";
-
+  document.getElementById("status").innerText = total + " מתוך " + DAILY_LIMIT + " מ״ל";
   const overflowAmount = total - DAILY_LIMIT;
-  document.getElementById("overflow").innerText =
-    overflowAmount > 0 ? "חריגה: " + overflowAmount + " מ״ל" : "";
-
+  document.getElementById("overflow").innerText = overflowAmount > 0 ? "חריגה: " + overflowAmount + " מ״ל" : "";
   renderCups();
   renderLog();
 }
@@ -142,7 +74,6 @@ function render() {
 function renderCups() {
   const cups = document.getElementById("cups");
   cups.innerHTML = "";
-
   const numCups = Math.ceil(DAILY_LIMIT / CUP_SIZE);
   const percent = total / DAILY_LIMIT;
   const overflow = total > DAILY_LIMIT;
@@ -150,34 +81,26 @@ function renderCups() {
   for (let i = 0; i < numCups; i++) {
     const cup = document.createElement("div");
     cup.className = "cup";
-
-    // סימוני קווים כל 10 מ״ל
     for (let y = 10; y < CUP_SIZE; y += 10) {
       const mark = document.createElement("div");
       mark.className = "marker";
       mark.style.bottom = (y / CUP_SIZE * 100) + "%";
       cup.appendChild(mark);
     }
-
     const fill = document.createElement("div");
     fill.className = "fill";
-    fill.style.height =
-      Math.max(0, Math.min(1, percent * numCups - i)) * 100 + "%";
-
+    fill.style.height = Math.max(0, Math.min(1, percent * numCups - i)) * 100 + "%";
     cup.appendChild(fill);
     cups.appendChild(cup);
   }
 
-  // כוס אדומה אם חריגה
   if (overflow) {
     const extraCup = document.createElement("div");
     extraCup.className = "cup";
-
     const redFill = document.createElement("div");
     redFill.className = "fill";
     redFill.style.height = "100%";
     redFill.style.background = "red";
-
     extraCup.appendChild(redFill);
     cups.appendChild(extraCup);
   }
@@ -186,7 +109,6 @@ function renderCups() {
 function renderLog() {
   const box = document.getElementById("log");
   box.innerHTML = "";
-
   log.forEach(entry => {
     const div = document.createElement("div");
     div.className = "log";
@@ -197,33 +119,19 @@ function renderLog() {
 
 function add(amount) {
   total += amount;
-
   const now = new Date();
-  const time =
-    now.getHours().toString().padStart(2,'0') + ":" +
-    now.getMinutes().toString().padStart(2,'0');
-
-  const date = now.getFullYear() + "-" +
-               (now.getMonth()+1).toString().padStart(2,'0') + "-" +
-               now.getDate().toString().padStart(2,'0');
+  const time = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
+  const date = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2,'0') + "-" + now.getDate().toString().padStart(2,'0');
 
   log.unshift({ amount, time });
+  render();
 
-  // שליחת Webhook
-  fetch(WEBHOOK_URL, {
+  fetch(UPDATE_WEBHOOK_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      amount: amount,
-      date: date,
-      time: time
-    })
-  }).catch(err => console.error("Webhook failed:", err));
-
-  render();
+    body: JSON.stringify({ amount: amount, date: date, time: time })
+  }).catch(err => console.error("Update Webhook failed:", err));
 }
-
-render();
 </script>
 
 </body>
