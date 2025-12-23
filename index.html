@@ -3,100 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>לוח מעקב אישי</title>
+    <title>לוח שנה ומעקב</title>
     <style>
-        :root { --primary-blue: #3498db; --bg-color: #f0f2f5; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--bg-color); text-align: center; margin: 0; padding: 20px; }
-        .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
-        .glass-container { display: flex; justify-content: space-around; margin: 20px 0; }
-        .glass { width: 60px; height: 90px; border: 3px solid #333; border-top: none; position: relative; border-radius: 0 0 10px 10px; background: #fff; overflow: hidden; }
-        .water { position: absolute; bottom: 0; width: 100%; background: var(--primary-blue); transition: height 1s ease-in-out; }
-        .message-area { background: #fff3cd; border: 2px solid #ffeeba; display: none; }
-        .timer { font-size: 2em; color: #d35400; font-weight: bold; }
-        img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; text-align: center; padding: 20px; direction: rtl; }
+        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 700px; margin-left: auto; margin-right: auto; }
+        .date-header { font-size: 1.8em; color: #2c3e50; font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .glass-container { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
+        .glass { width: 50px; height: 80px; border: 3px solid #333; border-top: none; position: relative; border-radius: 0 0 10px 10px; background: #fff; overflow: hidden; }
+        .water { position: absolute; bottom: 0; width: 100%; background: #3498db; transition: height 1s; }
+        .over-limit { background: #e74c3c !important; } /* צבע אדום אם עבר את המכסה */
+        .msg-list { text-align: right; font-size: 1.3em; list-style: none; padding: 0; }
+        .msg-item { background: #fff3cd; margin: 10px 0; padding: 15px; border-right: 5px solid #ffc107; border-radius: 5px; }
+        .timer { font-size: 2.5em; color: #d35400; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="msg-card" class="card message-area">
-        <div id="msg-text" style="font-size: 1.5em;"></div>
-        <img id="msg-img" src="" style="display:none;">
+    <div class="card">
+        <div id="hebrew-date" class="date-header"></div>
+        <div id="english-date" style="font-size: 1.2em; color: #7f8c8d;"></div>
+    </div>
+
+    <div id="messages-container" class="card" style="display:none;">
+        <ul id="msg-list" class="msg-list"></ul>
     </div>
 
     <div class="card">
-        <h2>כמה שתיתי היום?</h2>
-        <div class="glass-container" id="glasses"></div>
-        <p id="drank-summary" style="font-size: 1.2em;"></p>
+        <h2>מצב שתייה יומי</h2>
+        <div id="glasses" class="glass-container"></div>
+        <div id="drank-info" style="font-size: 1.4em; font-weight: bold;">טוען נתונים...</div>
     </div>
 
     <div class="card">
-        <h2>הארוחה הבאה בעוד:</h2>
+        <h3>זמן לארוחה הבאה:</h3>
         <div id="timer" class="timer">--:--</div>
     </div>
 
     <script>
-        // פרטי Airtable - חובה למלא!
-        const TOKEN = 'patB4mP3wrsCwp5QU.ef79ab511e1080eae72b4d05ec10b9a899d1502f02632cf7e92d54e783b711d0';
-        const BASE_ID = 'tblV8mVoNlHVfXbwo';
-        const TABLE_NAME = 'Status'; 
+        const TOKEN = 'patB4mP3wrsCwp5QU.ef79ab511e1080eae72b4d05ec10b9a899d1502f02632cf7e92d54e783b711d0'; 
+        const BASE_ID = 'tblAPuqJiDOBqi20A';
 
-        async function updateDashboard() {
+        async function updateData() {
             try {
-                const response = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`, {
+                // 1. קבלת הגדרות (שתייה וארוחות)
+                const settingsRes = await fetch(`https://api.airtable.com/v0/${BASE_ID}/Settings`, {
                     headers: { Authorization: `Bearer ${TOKEN}` }
                 });
-                const data = await response.json();
-                const record = data.records[0].fields;
+                const settingsData = await settingsRes.json();
+                const settings = settingsData.records[0].fields;
 
-                // עדכון מים (יעד 800 מ"ל, 4 כוסות)
-                renderGlasses(record.Total_Drank || 0, 800);
-                
-                // עדכון טיימר
-                if(record.Next_Meal) startTimer(record.Next_Meal);
+                // 2. קבלת הודעות
+                const msgRes = await fetch(`https://api.airtable.com/v0/${BASE_ID}/Messages?filterByFormula={Display}=1`, {
+                    headers: { Authorization: `Bearer ${TOKEN}` }
+                });
+                const msgData = await msgRes.json();
 
-                // עדכון הודעה
-                if(record.Message) {
-                    document.getElementById('msg-card').style.display = 'block';
-                    document.getElementById('msg-text').innerText = record.Message;
-                    if(record.Image_URL) {
-                        document.getElementById('msg-img').src = record.Image_URL;
-                        document.getElementById('msg-img').style.display = 'inline';
-                    }
-                }
-            } catch (e) { console.error("Error fetching data", e); }
+                renderDashboard(settings, msgData.records);
+            } catch (e) { console.error("שגיאה במשיכת נתונים", e); }
         }
 
-        function renderGlasses(current, target) {
+        function renderDashboard(settings, messages) {
+            // תאריכים
+            const now = new Date();
+            document.getElementById('english-date').innerText = now.toLocaleDateString('he-IL');
+            document.getElementById('hebrew-date').innerText = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', {dateStyle: 'full'}).format(now);
+
+            // הודעות
+            const msgList = document.getElementById('msg-list');
+            msgList.innerHTML = '';
+            if(messages.length > 0) {
+                document.getElementById('messages-container').style.display = 'block';
+                messages.forEach(m => {
+                    const li = document.createElement('li');
+                    li.className = 'msg-item';
+                    li.innerText = m.fields.Text;
+                    msgList.appendChild(li);
+                });
+            }
+
+            // שתייה
+            const drank = settings.Total_Drank || 0;
+            const limit = settings.Daily_Limit || 800;
+            const remaining = limit - drank;
+            
+            document.getElementById('drank-info').innerHTML = `שתית ${drank} מ"ל. <br> ` + 
+                (remaining >= 0 ? `נותרו עוד ${remaining} מ"ל.` : `<span style="color:red">עברת את המותר ב-${Math.abs(remaining)} מ"ל!</span>`);
+
+            renderGlasses(drank, limit);
+            startTimer(settings.Next_Meal);
+        }
+
+        function renderGlasses(drank, limit) {
             const container = document.getElementById('glasses');
             container.innerHTML = '';
-            const mlPerGlass = target / 4;
-            for (let i = 0; i < 4; i++) {
+            const numGlasses = 5;
+            const perGlass = limit / numGlasses;
+
+            for (let i = 0; i < numGlasses; i++) {
                 const glass = document.createElement('div');
                 glass.className = 'glass';
                 const water = document.createElement('div');
                 water.className = 'water';
-                let fill = Math.min(Math.max((current - (i * mlPerGlass)) / mlPerGlass, 0), 1) * 100;
+                if (drank > limit) water.classList.add('over-limit');
+                
+                let fill = Math.min(Math.max((drank - (i * perGlass)) / perGlass, 0), 1) * 100;
                 water.style.height = fill + '%';
                 glass.appendChild(water);
                 container.appendChild(glass);
             }
-            document.getElementById('drank-summary').innerText = `שתית ${current} מ"ל מתוך ${target} מ"ל`;
         }
 
-        function startTimer(endTime) {
-            const target = new Date(endTime).getTime();
-            setInterval(() => {
-                const now = new Date().getTime();
-                const diff = target - now;
-                if (diff < 0) { document.getElementById('timer').innerText = "זמן לאכול!"; return; }
+        function startTimer(target) {
+            if(!target) return;
+            const mealTime = new Date(target).getTime();
+            const timerDiv = document.getElementById('timer');
+            
+            const interval = setInterval(() => {
+                const diff = mealTime - new Date().getTime();
+                if(diff <= 0) { timerDiv.innerText = "בתיאבון!"; clearInterval(interval); return; }
                 const mins = Math.floor(diff / 60000);
                 const secs = Math.floor((diff % 60000) / 1000);
-                document.getElementById('timer').innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                timerDiv.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
             }, 1000);
         }
 
-        updateDashboard();
-        setInterval(updateDashboard, 60000); // רענון כל דקה
+        updateData();
+        setInterval(updateData, 30000); // רענון חצי דקה
     </script>
 </body>
 </html>
