@@ -1,105 +1,107 @@
-<style>
-    /* עיצוב נוסף לטיימרים ברשימה */
-    .task-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 15px;
-        border-bottom: 2px solid #f0f0f0;
-        background: #fff;
-    }
-    .task-info { text-align: right; flex-grow: 1; }
-    .task-name { font-size: 1.5em; font-weight: bold; display: block; }
-    .task-timer { 
-        font-family: monospace; 
-        color: #e67e22; 
-        font-size: 1.2em; 
-        background: #fdf2e9; 
-        padding: 2px 8px; 
-        border-radius: 5px;
-    }
-    .btn-done {
-        margin-right: 15px;
-        padding: 10px 15px;
-        font-size: 1.1em;
-        border-radius: 8px;
-        cursor: pointer;
-        border: 2px solid #2ecc71;
-        background: white;
-        color: #27ae60;
-    }
-    .btn-done.completed {
-        background: #2ecc71;
-        color: white;
-    }
-</style>
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>Care Dashboard</title>
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src https://hook.make.com;">
 
-<div class="card">
-    <h2>משימות להיום</h2>
-    <div id="tasks-list"></div>
-</div>
+<style>
+body { font-family: Arial; font-size: 24px; background:#f4f6f8; }
+.alert { color:red; font-weight:bold; }
+.cups { display:flex; gap:10px; }
+.cup { width:50px; height:100px; border:2px solid #000; position:relative; }
+.fill { position:absolute; bottom:0; width:100%; background:#4da6ff; }
+button { font-size:22px; padding:10px 20px; }
+</style>
+</head>
+
+<body>
+
+<h1>מצב יומי</h1>
+
+<div id="drinkStatus"></div>
+<div class="cups" id="cups"></div>
+
+<button onclick="drink(50)">50 מ״ל</button>
+<button onclick="drink(100)">100 מ״ל</button>
+<button onclick="drink(200)">200 מ״ל</button>
+
+<h2>משימות</h2>
+<div id="tasks"></div>
 
 <script>
-    let tasks = [];
+const CONFIG_URL = "config.json";
+const REPORT_WEBHOOK = "https://hook.make.com/XXXX";
 
-    async function loadTasks() {
-        const res = await fetch('config.json?v=' + Date.now());
-        const config = await res.json();
-        tasks = config.tasks;
-        renderTasks();
-    }
+let config;
 
-    function renderTasks() {
-        const list = document.getElementById('tasks-list');
-        list.innerHTML = tasks.map((task, index) => `
-            <div class="task-item">
-                <div class="task-info">
-                    <span class="task-name">${task.label} בשעה ${task.time}</span>
-                    <span class="task-timer" id="timer-${index}">--:--:--</span>
-                </div>
-                <button class="btn-done" id="btn-${index}" onclick="markAsDone(${index}, '${task.label}')">בוצע</button>
-            </div>
-        `).join('');
-        
-        startTaskTimers();
-    }
+async function loadConfig() {
+  try {
+    const res = await fetch(CONFIG_URL + "?t=" + Date.now());
+    config = await res.json();
+    render();
+  } catch {
+    document.body.innerHTML = "<h2>שגיאת טעינה</h2>";
+  }
+}
 
-    function startTaskTimers() {
-        setInterval(() => {
-            const now = new Date();
-            const dateStr = now.toISOString().split('T')[0];
+function render() {
+  renderWater();
+  renderTasks();
+}
 
-            tasks.forEach((task, index) => {
-                const target = new Date(`${dateStr}T${task.time}:00`);
-                const diff = target - now;
-                const timerEl = document.getElementById(`timer-${index}`);
+function renderWater() {
+  const percent = config.totalDrank / config.dailyLimit;
+  const cups = document.getElementById("cups");
+  cups.innerHTML = "";
 
-                if (diff > 0) {
-                    const hrs = Math.floor(diff / 3600000);
-                    const mins = Math.floor((diff % 3600000) / 60000);
-                    const secs = Math.floor((diff % 60000) / 1000);
-                    timerEl.innerText = `עוד ${hrs}:${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-                } else {
-                    timerEl.innerText = "זמן המשימה הגיע";
-                    timerEl.style.color = "#e74c3c";
-                }
-            });
-        }, 1000);
-    }
+  for (let i=0;i<5;i++) {
+    const c = document.createElement("div");
+    c.className="cup";
+    const f = document.createElement("div");
+    f.className="fill";
+    f.style.height = Math.max(0, Math.min(1, percent*5 - i)) * 100 + "%";
+    c.appendChild(f);
+    cups.appendChild(c);
+  }
 
-    function markAsDone(index, label) {
-        const btn = document.getElementById(`btn-${index}`);
-        btn.innerText = "✓ בוצע";
-        btn.classList.add('completed');
-        btn.disabled = true;
-        
-        // דיווח לוובהוק
-        fetch(WEBHOOK_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            body: JSON.stringify({ type: 'task_completed', task: label, time: new Date().toISOString() })
-        });
-    }
+  const status = document.getElementById("drinkStatus");
+  status.innerText = `${config.totalDrank} / ${config.dailyLimit} מ״ל`;
+  if (config.totalDrank > config.dailyLimit) status.className="alert";
+}
 
-    loadTasks();
+function renderTasks() {
+  const box = document.getElementById("tasks");
+  box.innerHTML="";
+  config.tasks.forEach(t => {
+    const d = document.createElement("div");
+    const diff = new Date(t.time) - new Date();
+    d.innerText = `${t.name} – ${format(diff)}`;
+    box.appendChild(d);
+  });
+}
+
+function format(ms) {
+  if (ms<=0) return "עכשיו";
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  return `${h}:${m.toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+}
+
+async function drink(amount) {
+  await fetch(REPORT_WEBHOOK,{
+    method:"POST",
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ type:"drink", amount, time:new Date().toISOString() })
+  });
+  loadConfig();
+}
+
+loadConfig();
+setInterval(loadConfig,60000);
 </script>
+
+</body>
+</html>
