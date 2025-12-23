@@ -3,132 +3,135 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>לוח שנה ומעקב</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'; connect-src 'self' https://api.airtable.com;">
+    <title>לוח מעקב אישי</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; text-align: center; padding: 20px; direction: rtl; }
-        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 700px; margin-left: auto; margin-right: auto; }
-        .date-header { font-size: 1.8em; color: #2c3e50; font-weight: bold; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
-        .glass-container { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
-        .glass { width: 50px; height: 80px; border: 3px solid #333; border-top: none; position: relative; border-radius: 0 0 10px 10px; background: #fff; overflow: hidden; }
-        .water { position: absolute; bottom: 0; width: 100%; background: #3498db; transition: height 1s; }
-        .over-limit { background: #e74c3c !important; } /* צבע אדום אם עבר את המכסה */
-        .msg-list { text-align: right; font-size: 1.3em; list-style: none; padding: 0; }
-        .msg-item { background: #fff3cd; margin: 10px 0; padding: 15px; border-right: 5px solid #ffc107; border-radius: 5px; }
-        .timer { font-size: 2.5em; color: #d35400; font-weight: bold; }
+        :root { --main-blue: #3498db; --warning-red: #e74c3c; --bg: #f4f7f9; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; direction: rtl; }
+        .card { background: white; border-radius: 20px; padding: 25px; box-shadow: 0 8px 20px rgba(0,0,0,0.08); margin-bottom: 25px; max-width: 800px; margin-left: auto; margin-right: auto; }
+        .date-section { border-bottom: 4px solid var(--main-blue); padding-bottom: 15px; }
+        .hebrew-date { font-size: 3em; font-weight: bold; color: #2c3e50; display: block; }
+        .english-date { font-size: 1.5em; color: #7f8c8d; }
+        .msg-item { background: #fff3cd; border-right: 8px solid #f1c40f; padding: 20px; margin: 15px 0; border-radius: 10px; font-size: 1.8em; text-align: right; font-weight: bold; color: #856404; }
+        .glass-container { display: flex; justify-content: center; gap: 20px; margin: 30px 0; flex-wrap: wrap; }
+        .glass { width: 70px; height: 110px; border: 4px solid #333; border-top: none; position: relative; border-radius: 0 0 15px 15px; background: #fff; overflow: hidden; }
+        .water { position: absolute; bottom: 0; width: 100%; background: var(--main-blue); transition: height 1.5s ease-in-out; }
+        .water.danger { background: var(--warning-red); }
+        .info-text { font-size: 1.8em; font-weight: bold; margin-top: 15px; }
+        .timer-label { font-size: 1.5em; color: #2c3e50; }
+        .timer-digits { font-size: 4em; font-weight: bold; color: #d35400; font-family: monospace; }
     </style>
 </head>
 <body>
 
-    <div class="card">
-        <div id="hebrew-date" class="date-header"></div>
-        <div id="english-date" style="font-size: 1.2em; color: #7f8c8d;"></div>
+    <div class="card date-section">
+        <span id="heb-date" class="hebrew-date">טוען תאריך...</span>
+        <span id="eng-date" class="english-date"></span>
     </div>
 
-    <div id="messages-container" class="card" style="display:none;">
-        <ul id="msg-list" class="msg-list"></ul>
-    </div>
+    <div id="messages-area"></div>
 
     <div class="card">
-        <h2>מצב שתייה יומי</h2>
-        <div id="glasses" class="glass-container"></div>
-        <div id="drank-info" style="font-size: 1.4em; font-weight: bold;">טוען נתונים...</div>
+        <div class="timer-label">מצב שתייה יומי:</div>
+        <div id="glasses-box" class="glass-container"></div>
+        <div id="drinking-summary" class="info-text">מחשב נתונים...</div>
     </div>
 
     <div class="card">
-        <h3>זמן לארוחה הבאה:</h3>
-        <div id="timer" class="timer">--:--</div>
+        <div class="timer-label">זמן לארוחה הבאה:</div>
+        <div id="timer" class="timer-digits">--:--</div>
     </div>
 
     <script>
-        const TOKEN = 'patYROlXXsnMS6UGc.35db62b17c05cb389113fb25139404a902b3e173ddf9e4977b820b886f472ba3'; 
-        const BASE_ID = 'tblAPuqJiDOBqi20A';
+        const CONFIG = {
+            TOKEN: 'patYROlXXsnMS6UGc.35db62b17c05cb389113fb25139404a902b3e173ddf9e4977b820b886f472ba3',
+            BASE_ID: 'tblAPuqJiDOBqi20A',
+            TABLES: { SETTINGS: 'Settings', MESSAGES: 'Messages' }
+        };
 
-        async function updateData() {
+        function updateTime() {
+            const now = new Date();
+            const hebOptions = { calendar: 'hebrew', dateStyle: 'full' };
+            document.getElementById('heb-date').innerText = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', hebOptions).format(now);
+            document.getElementById('eng-date').innerText = now.toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        async function fetchData() {
             try {
-                // 1. קבלת הגדרות (שתייה וארוחות)
-                const settingsRes = await fetch(`https://api.airtable.com/v0/${BASE_ID}/Settings`, {
-                    headers: { Authorization: `Bearer ${TOKEN}` }
+                // משיכת הגדרות
+                const setRes = await fetch(`https://api.airtable.com/v0/${CONFIG.BASE_ID}/${CONFIG.TABLES.SETTINGS}`, {
+                    headers: { Authorization: `Bearer ${CONFIG.TOKEN}` }
                 });
-                const settingsData = await settingsRes.json();
-                const settings = settingsData.records[0].fields;
+                const setData = await setRes.json();
+                const settings = setData.records[0].fields;
 
-                // 2. קבלת הודעות
-                const msgRes = await fetch(`https://api.airtable.com/v0/${BASE_ID}/Messages?filterByFormula={Display}=1`, {
-                    headers: { Authorization: `Bearer ${TOKEN}` }
+                // משיכת הודעות (רק אלו שמסומנות ב-Display)
+                const msgRes = await fetch(`https://api.airtable.com/v0/${CONFIG.BASE_ID}/${CONFIG.TABLES.MESSAGES}?filterByFormula={Display}=1`, {
+                    headers: { Authorization: `Bearer ${CONFIG.TOKEN}` }
                 });
                 const msgData = await msgRes.json();
 
-                renderDashboard(settings, msgData.records);
-            } catch (e) { console.error("שגיאה במשיכת נתונים", e); }
+                renderUI(settings, msgData.records);
+            } catch (err) {
+                console.error("Airtable Error:", err);
+            }
         }
 
-        function renderDashboard(settings, messages) {
-            // תאריכים
-            const now = new Date();
-            document.getElementById('english-date').innerText = now.toLocaleDateString('he-IL');
-            document.getElementById('hebrew-date').innerText = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', {dateStyle: 'full'}).format(now);
+        function renderUI(settings, messageRecords) {
+            // 1. רינדור הודעות
+            const msgArea = document.getElementById('messages-area');
+            msgArea.innerHTML = '';
+            messageRecords.forEach(rec => {
+                const div = document.createElement('div');
+                div.className = 'msg-item';
+                div.innerText = rec.fields.Text;
+                msgArea.appendChild(div);
+            });
 
-            // הודעות
-            const msgList = document.getElementById('msg-list');
-            msgList.innerHTML = '';
-            if(messages.length > 0) {
-                document.getElementById('messages-container').style.display = 'block';
-                messages.forEach(m => {
-                    const li = document.createElement('li');
-                    li.className = 'msg-item';
-                    li.innerText = m.fields.Text;
-                    msgList.appendChild(li);
-                });
+            // 2. רינדור שתייה
+            const drank = settings.Total_Drank || 0;
+            const limit = settings.Daily_Limit || 1000;
+            const summary = document.getElementById('drinking-summary');
+            
+            summary.innerHTML = `שתית ${drank} מ"ל מתוך ${limit} מ"ל מותרים.`;
+            if (drank > limit) {
+                summary.innerHTML += `<br><span style="color:var(--warning-red)">לתשומת לבך: עברת את המכסה!</span>`;
             }
 
-            // שתייה
-            const drank = settings.Total_Drank || 0;
-            const limit = settings.Daily_Limit || 800;
-            const remaining = limit - drank;
-            
-            document.getElementById('drank-info').innerHTML = `שתית ${drank} מ"ל. <br> ` + 
-                (remaining >= 0 ? `נותרו עוד ${remaining} מ"ל.` : `<span style="color:red">עברת את המותר ב-${Math.abs(remaining)} מ"ל!</span>`);
-
-            renderGlasses(drank, limit);
-            startTimer(settings.Next_Meal);
-        }
-
-        function renderGlasses(drank, limit) {
-            const container = document.getElementById('glasses');
+            const container = document.getElementById('glasses-box');
             container.innerHTML = '';
             const numGlasses = 5;
-            const perGlass = limit / numGlasses;
+            const mlPerGlass = limit / numGlasses;
 
             for (let i = 0; i < numGlasses; i++) {
                 const glass = document.createElement('div');
                 glass.className = 'glass';
                 const water = document.createElement('div');
-                water.className = 'water';
-                if (drank > limit) water.classList.add('over-limit');
-                
-                let fill = Math.min(Math.max((drank - (i * perGlass)) / perGlass, 0), 1) * 100;
+                water.className = 'water' + (drank > limit ? ' danger' : '');
+                let fill = Math.min(Math.max((drank - (i * mlPerGlass)) / mlPerGlass, 0), 1) * 100;
                 water.style.height = fill + '%';
                 glass.appendChild(water);
                 container.appendChild(glass);
             }
+
+            // 3. טיימר
+            if (settings.Next_Meal) setupTimer(settings.Next_Meal);
         }
 
-        function startTimer(target) {
-            if(!target) return;
-            const mealTime = new Date(target).getTime();
-            const timerDiv = document.getElementById('timer');
+        let timerInterval;
+        function setupTimer(targetTime) {
+            if (timerInterval) clearInterval(timerInterval);
+            const target = new Date(targetTime).getTime();
             
-            const interval = setInterval(() => {
-                const diff = mealTime - new Date().getTime();
-                if(diff <= 0) { timerDiv.innerText = "בתיאבון!"; clearInterval(interval); return; }
-                const mins = Math.floor(diff / 60000);
-                const secs = Math.floor((diff % 60000) / 1000);
-                timerDiv.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-            }, 1000);
-        }
+            timerInterval = setInterval(() => {
+                const now = new Date().getTime();
+                const diff = target - now;
+                const display = document.getElementById('timer');
 
-        updateData();
-        setInterval(updateData, 30000); // רענון חצי דקה
-    </script>
-</body>
-</html>
+                if (diff <= 0) {
+                    display.innerText = "בתיאבון!";
+                    clearInterval(timerInterval);
+                } else {
+                    const mins = Math.floor(diff / 60000);
+                    const secs = Math.floor((diff % 60000) / 1000);
+                    display
