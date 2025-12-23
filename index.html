@@ -1,119 +1,70 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-<meta charset="UTF-8">
-<title>עוגן מציאות</title>
-
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f2f4f7;
-  text-align: center;
-  padding: 30px;
-}
-
-h1 {
-  font-size: 48px;
-  margin-bottom: 10px;
-}
-
-h2 {
-  font-size: 36px;
-  margin-top: 40px;
-}
-
-#drinkText {
-  font-size: 36px;
-  margin: 20px 0;
-}
-
-.cups {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin: 20px 0;
-  min-height: 180px;
-}
-
-.cup {
-  width: 80px;
-  height: 160px;
-  border: 5px solid #000;
-  border-radius: 0 0 20px 20px;
-  position: relative;
-  background: #fff;
-}
-
-.fill {
-  position: absolute;
-  bottom: 0;
-  width: 100%;
-  background: #4da6ff;
-  transition: height 0.3s;
-}
-
-.alert .fill {
-  background: red;
-}
-
-.buttons {
-  display: flex;
-  justify-content: center;
-  gap: 20px;
-  margin-top: 30px;
-}
-
-button {
-  font-size: 32px;
-  padding: 20px 30px;
-  border-radius: 14px;
-  border: none;
-  background: #2e7df6;
-  color: white;
-}
-
-.task {
-  font-size: 28px;
-  background: white;
-  margin: 15px auto;
-  padding: 15px;
-  width: 80%;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-}
-
-.task.alert {
-  background: #ffe5e5;
-  color: red;
-}
-</style>
+    <meta charset="UTF-8">
+    <title>לוח בקרה אישי</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f7f6; }
+        .task-card { border: 2px solid #ddd; margin: 10px; padding: 15px; border-radius: 8px; }
+        .urgent { border-color: red; background-color: #ffe6e6; }
+        .water-cup { display: inline-block; width: 50px; height: 70px; border: 2px solid blue; margin: 5px; }
+        .filled { background-color: #3498db; }
+    </style>
 </head>
-
 <body>
+    <h1>שלום, אלו המשימות שלך להיום</h1>
+    
+    <div id="water-section">
+        <h3>שתיית מים (יעד: <span id="target"></span> כוסות)</h3>
+        <div id="cups-container"></div>
+        <button onclick="reportAction('water', 1)">שתיתי כוס מים</button>
+    </div>
 
-<h1>שתייה היום</h1>
+    <div id="tasks-container"></div>
 
-<div id="drinkText"></div>
+    <script>
+        const CONFIG_URL = 'https://raw.githubusercontent.com/USER/REPO/main/config.json';
+        const MAKE_WEBHOOK = 'https://hook.make.com/YOUR_REPORT_ID';
 
-<div class="cups" id="cups"></div>
+        async function fetchData() {
+            const response = await fetch(`${CONFIG_URL}?t=${new Date().getTime()}`);
+            const data = await response.json();
+            renderUI(data);
+        }
 
-<div class="buttons">
-  <button onclick="addDrink(50)">50 מ״ל</button>
-  <button onclick="addDrink(100)">100 מ״ל</button>
-  <button onclick="addDrink(200)">200 מ״ל</button>
-</div>
+        function renderUI(data) {
+            // עיבוד כוסות מים
+            const container = document.getElementById('cups-container');
+            container.innerHTML = '';
+            for(let i=0; i<data.dailyLimit; i++) {
+                const cup = document.createElement('div');
+                cup.className = `water-cup ${i < data.consumed ? 'filled' : ''}`;
+                container.appendChild(cup);
+            }
+            document.getElementById('target').innerText = data.dailyLimit;
 
-<h2>משימות</h2>
-<div id="tasks"></div>
+            // עיבוד משימות
+            const taskContainer = document.getElementById('tasks-container');
+            taskContainer.innerHTML = '';
+            data.tasks.forEach(task => {
+                const div = document.createElement('div');
+                div.className = 'task-card';
+                div.innerHTML = `<b>${task.name}</b> - בשעה ${task.time} 
+                                 <button onclick="reportAction('task', '${task.name}')">בוצע</button>`;
+                taskContainer.appendChild(div);
+            });
+        }
 
-<script>
-const CONFIG_URL = "config.json";
-const WEBHOOK = "https://hook.make.com/XXXX";
+        async function reportAction(type, value) {
+            await fetch(MAKE_WEBHOOK, {
+                method: 'POST',
+                body: JSON.stringify({ type, value, timestamp: new Date().toISOString() })
+            });
+            alert("הדיווח נשלח בהצלחה");
+        }
 
-let dailyLimit = 0;
-let totalDrank = 0;
-let tasks = [];
-
-async function loadConfig() {
-  try {
-    const res = await fetch
+        setInterval(fetchData, 60000);
+        fetchData();
+    </script>
+</body>
+</html>
