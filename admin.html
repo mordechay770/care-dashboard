@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>ניהול הגדרות - לוח טיפול</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; background: #eee; direction: rtl; }
+        .admin-card { background: white; padding: 20px; border-radius: 10px; max-width: 500px; margin: auto; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+        input, button { width: 100%; padding: 10px; margin: 10px 0; box-sizing: border-box; }
+        textarea { width: 100%; height: 100px; }
+    </style>
+</head>
+<body>
+    <div class="admin-card">
+        <h2>עדכון הגדרות יומיות</h2>
+        <label>מכסת שתייה (מ"ל):</label>
+        <input type="number" id="limit" value="1200">
+        
+        <label>תרופות (שעה ושם - מופרדים בפסיק):</label>
+        <textarea id="meds" placeholder="08:00, כדור בוקר&#10;14:00, ויטמינים"></textarea>
+
+        <label>זמני ארוחות (פורמט HH:MM):</label>
+        <input type="text" id="meals" placeholder="08:00, 13:00, 19:00">
+
+        <button onclick="generateConfig()">צור קובץ הגדרות</button>
+        
+        <p>העתק את הטקסט למטה והדבק בתוך קובץ config.json ב-GitHub:</p>
+        <textarea id="output" readonly></textarea>
+    </div>
+
+    <script>
+        function generateConfig() {
+            const medsRaw = document.getElementById('meds').value.split('\n');
+            const meds = medsRaw.map(line => {
+                const [time, name] = line.split(',');
+                return { time: time?.trim(), name: name?.trim() };
+            });
+
+            const mealsRaw = document.getElementById('meals').value.split(',');
+            const today = new Date().toISOString().split('T')[0];
+            const meals = mealsRaw.map(m => `${today}T${m.trim()}:00`);
+
+            const config = {
+                dailyLimit: parseInt(document.getElementById('limit').value),
+                medications: meds,
+                meals: meals,
+                messages: ["נא לעקוב אחרי ההנחיות"]
+            };
+
+            document.getElementById('output').value = JSON.stringify(config, null, 2);
+        }
+    </script>
+</body>
+</html>
