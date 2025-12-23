@@ -1,195 +1,131 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <title>עוגן מציאות – Care Dashboard</title>
-
-  <!-- Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self';
-                 connect-src https://api.airtable.com;
-                 style-src 'self' 'unsafe-inline';
-                 script-src 'self';
-                 img-src 'self' data:;">
-
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f7fa;
-      color: #000;
-      padding: 20px;
-    }
-    h1 { font-size: 36px; margin-bottom: 10px; }
-    .date { font-size: 22px; margin-bottom: 20px; }
-
-    .cards {
-      display: flex;
-      gap: 15px;
-      flex-wrap: wrap;
-    }
-    .card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 15px;
-      font-size: 22px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-      min-width: 200px;
-    }
-
-    .water {
-      display: flex;
-      gap: 10px;
-      margin-top: 15px;
-    }
-    .cup {
-      width: 60px;
-      height: 120px;
-      border: 2px solid #333;
-      border-radius: 0 0 10px 10px;
-      position: relative;
-      overflow: hidden;
-      background: #fff;
-    }
-    .fill {
-      position: absolute;
-      bottom: 0;
-      width: 100%;
-      height: 0%;
-      background: #4da6ff;
-      transition: height 0.5s;
-    }
-    .alert .fill { background: red; }
-    .alert-text { color: red; font-weight: bold; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>לוח ניהול רפואי</title>
+    <style>
+        :root { --main-blue: #3498db; --success: #2ecc71; --warning: #e74c3c; --bg: #f8f9fa; }
+        body { font-family: 'Segoe UI', Arial; background: var(--bg); margin: 0; padding: 20px; text-align: center; direction: rtl; }
+        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .hebrew-date { font-size: 2.2em; font-weight: bold; color: #2c3e50; }
+        /* תרופות */
+        .med-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; font-size: 1.3em; }
+        .med-item:last-child { border-bottom: none; }
+        .med-time { font-weight: bold; color: var(--main-blue); margin-left: 10px; }
+        .take-btn { background: #eee; border: 2px solid #ccc; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; }
+        .take-btn.done { background: var(--success); color: white; border-color: var(--success); }
+        /* שתייה */
+        .glass-container { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
+        .glass { width: 45px; height: 75px; border: 3px solid #333; border-top: none; position: relative; border-radius: 0 0 10px 10px; overflow: hidden; background: white; }
+        .water { position: absolute; bottom: 0; width: 100%; background: var(--main-blue); transition: height 0.8s; }
+        .btn-drink { padding: 15px 20px; font-size: 1.1em; cursor: pointer; border: none; border-radius: 10px; background: var(--main-blue); color: white; font-weight: bold; margin: 5px; }
+        .timer { font-size: 2.5em; color: #d35400; font-weight: bold; }
+    </style>
 </head>
-
 <body>
 
-<h1>עוגן מציאות</h1>
-<div class="date" id="date"></div>
+    <div class="card">
+        <div id="heb-date" class="hebrew-date"></div>
+        <div id="eng-date" style="color: #7f8c8d;"></div>
+    </div>
 
-<div class="cards">
-  <div class="card">
-    🕒 ארוחה הבאה בעוד:<br>
-    <strong id="mealTimer">—</strong>
-  </div>
+    <div class="card">
+        <h2>תרופות להיום</h2>
+        <div id="meds-list"></div>
+    </div>
 
-  <div class="card">
-    💧 שתייה היום:<br>
-    <span id="drinkText"></span>
-  </div>
-</div>
+    <div class="card">
+        <h2>מצב שתייה</h2>
+        <div class="glass-container" id="glasses"></div>
+        <div id="status-text" style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px;"></div>
+        <button class="btn-drink" onclick="report('drink', 100)">+ 100 מ"ל</button>
+        <button class="btn-drink" onclick="report('drink', 200)">+ 200 מ"ל</button>
+    </div>
 
-<div class="water" id="waterCups"></div>
+    <div class="card">
+        <h3>הארוחה הבאה:</h3>
+        <div id="timer" class="timer">--:--</div>
+    </div>
 
-<h2>הודעות חשובות</h2>
-<div class="cards" id="messages"></div>
+    <script>
+        const WEBHOOK_URL = 'כתובת_הוובהוק_שלך_במאייק';
+        let state = { limit: 1000, drank: 0, meds: [] };
 
-<script>
-/* ================= CONFIG ================= */
-const AIRTABLE_TOKEN = "patYROlXXsnMS6UGc.35db62b17c05cb389113fb25139404a902b3e173ddf9e4977b820b886f472ba3";
-const BASE_ID = "app4fog6zrzOnJJal";
-/* ========================================= */
+        async function init() {
+            try {
+                const res = await fetch('config.json?v=' + Date.now());
+                const config = await res.json();
+                state.limit = config.dailyLimit;
+                state.meds = config.medications;
+                renderMeds();
+                updateUI();
+                updateDates();
+                setupMealTimer(config.meals);
+            } catch (e) { console.error("Load error", e); }
+        }
 
-const headers = {
-  "Authorization": `Bearer ${AIRTABLE_TOKEN}`
-};
+        function renderMeds() {
+            const list = document.getElementById('meds-list');
+            list.innerHTML = state.meds.map((med, index) => `
+                <div class="med-item">
+                    <span><span class="med-time">${med.time}</span> ${med.name}</span>
+                    <button id="med-${index}" class="take-btn" onclick="takeMed(${index}, '${med.name}')">סמן כנלקח</button>
+                </div>
+            `).join('');
+        }
 
-function setDates() {
-  const now = new Date();
-  const hebrew = new Intl.DateTimeFormat('he-u-ca-hebrew',
-    { weekday:'long', day:'numeric', month:'long', year:'numeric' }
-  ).format(now);
+        function takeMed(index, name) {
+            const btn = document.getElementById(`med-${index}`);
+            btn.innerText = "✓ נלקח";
+            btn.classList.add('done');
+            btn.disabled = true;
+            report('medication', name);
+        }
 
-  const gregorian = now.toLocaleDateString('he-IL');
-  document.getElementById('date').innerText = `${hebrew} | ${gregorian}`;
-}
+        async function report(type, value) {
+            if (type === 'drink') {
+                state.drank += value;
+                updateUI();
+            }
+            // שליחה לוובהוק
+            fetch(WEBHOOK_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                body: JSON.stringify({ type, value, timestamp: new Date().toISOString() })
+            });
+        }
 
-async function fetchSettings() {
-  const res = await fetch(
-    `https://api.airtable.com/v0/${BASE_ID}/Settings`,
-    { headers }
-  );
-  const data = await res.json();
-  return data.records[0].fields;
-}
+        function updateUI() {
+            const container = document.getElementById('glasses');
+            container.innerHTML = '';
+            for (let i = 0; i < 5; i++) {
+                const waterHeight = Math.min(Math.max((state.drank - (i * (state.limit/5))) / (state.limit/5), 0), 1) * 100;
+                container.innerHTML += `<div class="glass"><div class="water" style="height:${waterHeight}%"></div></div>`;
+            }
+            document.getElementById('status-text').innerText = `${state.drank} / ${state.limit} מ"ל`;
+        }
 
-async function fetchMessages() {
-  const res = await fetch(
-    `https://api.airtable.com/v0/${BASE_ID}/Messages?filterByFormula=Display=1`,
-    { headers }
-  );
-  const data = await res.json();
-  return data.records;
-}
+        function updateDates() {
+            const now = new Date();
+            document.getElementById('heb-date').innerText = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', {dateStyle: 'full'}).format(now);
+            document.getElementById('eng-date').innerText = now.toLocaleDateString('he-IL', {dateStyle: 'full'});
+        }
 
-function updateWater(total, limit) {
-  const percent = Math.min(total / limit, 1);
-  const cups = document.getElementById('waterCups');
-  cups.innerHTML = "";
+        function setupMealTimer(meals) {
+            setInterval(() => {
+                const now = Date.now();
+                const next = meals.map(m => new Date(m).getTime()).filter(m => m > now).sort()[0];
+                const el = document.getElementById('timer');
+                if (!next) { el.innerText = "--:--"; return; }
+                const diff = next - now;
+                const mins = Math.floor(diff / 60000);
+                const secs = Math.floor((diff % 60000) / 1000);
+                el.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }, 1000);
+        }
 
-  const alert = total > limit;
-
-  for (let i = 0; i < 5; i++) {
-    const cup = document.createElement('div');
-    cup.className = 'cup' + (alert ? ' alert' : '');
-
-    const fill = document.createElement('div');
-    fill.className = 'fill';
-
-    const fillLevel = Math.max(0, percent * 5 - i);
-    fill.style.height = `${Math.min(fillLevel,1) * 100}%`;
-
-    cup.appendChild(fill);
-    cups.appendChild(cup);
-  }
-
-  const text = document.getElementById('drinkText');
-  text.innerText = `${total} / ${limit} מ"ל`;
-  if (alert) text.className = 'alert-text';
-}
-
-function updateMealTimer(time) {
-  const target = new Date(time);
-  setInterval(() => {
-    const diff = target - new Date();
-    if (diff <= 0) {
-      document.getElementById('mealTimer').innerText = "עכשיו";
-      return;
-    }
-    const m = Math.floor(diff / 60000);
-    const s = Math.floor((diff % 60000) / 1000);
-    document.getElementById('mealTimer').innerText = `${m}:${s.toString().padStart(2,'0')}`;
-  }, 1000);
-}
-
-async function load() {
-  try {
-    setDates();
-
-    const settings = await fetchSettings();
-    updateWater(settings.Total_Drank, settings.Daily_Limit);
-    updateMealTimer(settings.Next_Meal);
-
-    const msgs = await fetchMessages();
-    const box = document.getElementById('messages');
-    box.innerHTML = "";
-
-    msgs.forEach(m => {
-      const d = document.createElement('div');
-      d.className = 'card';
-      d.innerText = m.fields.Text;
-      box.appendChild(d);
-    });
-
-  } catch (e) {
-    document.body.innerHTML = "<h2>⚠️ שגיאת חיבור. נא לנסות מאוחר יותר.</h2>";
-  }
-}
-
-load();
-setInterval(load, 60000);
-</script>
-
+        init();
+    </script>
 </body>
 </html>
