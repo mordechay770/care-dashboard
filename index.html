@@ -48,16 +48,17 @@ let DAILY_LIMIT = 1000;
 let total = 0;
 let log = [];
 
-const INIT_WEBHOOK_URL = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";  // קריאה ראשונית
+const INIT_WEBHOOK_URL = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";  // קריאה ראשונית לקבלת dailyLimit, totalDrank והיסטוריה
 const UPDATE_WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs";  // עדכוני שתייה
 
-// קריאה ראשונית לקבלת dailyLimit ו-totalDrank
+// קריאה ראשונית בעת טעינת הדף
 window.addEventListener('load', () => {
   fetch(INIT_WEBHOOK_URL)
     .then(res => res.json())
     .then(data => {
       total = data.totalDrank || 0;
       DAILY_LIMIT = data.dailyLimit || 1000;
+      log = data.log || [];  // כאן נטען ההיסטוריה מהשרת
       render();
     })
     .catch(err => console.error("Failed to fetch initial data:", err));
