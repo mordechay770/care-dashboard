@@ -1,79 +1,15 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-<meta charset="UTF-8">
-<title>ניהול מערכת</title>
+async function updateConfig() {
+    const updatedData = {
+        dailyLimit: document.getElementById('limit').value,
+        tasks: Array.from(document.querySelectorAll('.task-input')).map(input => ({
+            name: input.dataset.name,
+            time: input.value
+        }))
+    };
 
-<style>
-body {
-  font-family: Arial;
-  background: #f4f6f8;
-  padding: 30px;
-  font-size: 22px;
+    await fetch('https://hook.make.com/YOUR_ADMIN_WEBHOOK', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedData)
+    });
 }
-
-label {
-  display: block;
-  margin-top: 20px;
-}
-
-input {
-  font-size: 22px;
-  padding: 8px;
-  width: 200px;
-}
-
-button {
-  margin-top: 30px;
-  font-size: 26px;
-  padding: 15px 30px;
-}
-</style>
-</head>
-
-<body>
-
-<h1>ניהול שתייה</h1>
-
-<label>
-  יעד שתייה יומי (מ״ל):
-  <input id="limit" type="number">
-</label>
-
-<label>
-  שתייה שבוצעה היום:
-  <input id="total" type="number">
-</label>
-
-<button onclick="save()">עדכן</button>
-
-<script>
-const UPDATE_WEBHOOK = "https://hook.make.com/YYYY";
-
-fetch("config.json?t=" + Date.now())
-  .then(r => r.json())
-  .then(c => {
-    document.getElementById("limit").value = c.dailyLimit;
-    document.getElementById("total").value = c.totalDrank;
-  });
-
-function save() {
-  const data = {
-    dailyLimit: Number(limit.value),
-    totalDrank: Number(total.value),
-    meals: [],
-    tasks: []
-  };
-
-  fetch(UPDATE_WEBHOOK, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data)
-  });
-
-  alert("עודכן");
-}
-</script>
-
-</body>
-</html>
