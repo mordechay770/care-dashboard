@@ -1,70 +1,116 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <title>לוח בקרה אישי</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #f4f7f6; }
-        .task-card { border: 2px solid #ddd; margin: 10px; padding: 15px; border-radius: 8px; }
-        .urgent { border-color: red; background-color: #ffe6e6; }
-        .water-cup { display: inline-block; width: 50px; height: 70px; border: 2px solid blue; margin: 5px; }
-        .filled { background-color: #3498db; }
-    </style>
+<meta charset="UTF-8">
+<title>שתייה היום</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f4f7;
+  text-align: center;
+  padding: 40px;
+}
+
+h1 {
+  font-size: 52px;
+  margin-bottom: 20px;
+}
+
+#status {
+  font-size: 40px;
+  margin-bottom: 30px;
+}
+
+.cups {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+  margin-bottom: 40px;
+}
+
+.cup {
+  width: 90px;
+  height: 180px;
+  border: 6px solid #000;
+  border-radius: 0 0 25px 25px;
+  background: white;
+  position: relative;
+}
+
+.fill {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  background: #4da6ff;
+  transition: height 0.3s;
+}
+
+.buttons {
+  display: flex;
+  justify-content: center;
+  gap: 25px;
+}
+
+button {
+  font-size: 34px;
+  padding: 22px 36px;
+  border-radius: 16px;
+  border: none;
+  background: #2e7df6;
+  color: white;
+}
+</style>
 </head>
+
 <body>
-    <h1>שלום, אלו המשימות שלך להיום</h1>
-    
-    <div id="water-section">
-        <h3>שתיית מים (יעד: <span id="target"></span> כוסות)</h3>
-        <div id="cups-container"></div>
-        <button onclick="reportAction('water', 1)">שתיתי כוס מים</button>
-    </div>
 
-    <div id="tasks-container"></div>
+<h1>שתייה היום</h1>
 
-    <script>
-        const CONFIG_URL = 'https://raw.githubusercontent.com/USER/REPO/main/config.json';
-        const MAKE_WEBHOOK = 'https://hook.make.com/YOUR_REPORT_ID';
+<div id="status"></div>
 
-        async function fetchData() {
-            const response = await fetch(`${CONFIG_URL}?t=${new Date().getTime()}`);
-            const data = await response.json();
-            renderUI(data);
-        }
+<div class="cups" id="cups"></div>
 
-        function renderUI(data) {
-            // עיבוד כוסות מים
-            const container = document.getElementById('cups-container');
-            container.innerHTML = '';
-            for(let i=0; i<data.dailyLimit; i++) {
-                const cup = document.createElement('div');
-                cup.className = `water-cup ${i < data.consumed ? 'filled' : ''}`;
-                container.appendChild(cup);
-            }
-            document.getElementById('target').innerText = data.dailyLimit;
+<div class="buttons">
+  <button onclick="add(50)">50 מ״ל</button>
+  <button onclick="add(100)">100 מ״ל</button>
+  <button onclick="add(200)">200 מ״ל</button>
+</div>
 
-            // עיבוד משימות
-            const taskContainer = document.getElementById('tasks-container');
-            taskContainer.innerHTML = '';
-            data.tasks.forEach(task => {
-                const div = document.createElement('div');
-                div.className = 'task-card';
-                div.innerHTML = `<b>${task.name}</b> - בשעה ${task.time} 
-                                 <button onclick="reportAction('task', '${task.name}')">בוצע</button>`;
-                taskContainer.appendChild(div);
-            });
-        }
+<script>
+const DAILY_LIMIT = 1500;
+let total = 0;
 
-        async function reportAction(type, value) {
-            await fetch(MAKE_WEBHOOK, {
-                method: 'POST',
-                body: JSON.stringify({ type, value, timestamp: new Date().toISOString() })
-            });
-            alert("הדיווח נשלח בהצלחה");
-        }
+function render() {
+  document.getElementById("status").innerText =
+    total + " מתוך " + DAILY_LIMIT + " מ״ל";
 
-        setInterval(fetchData, 60000);
-        fetchData();
-    </script>
+  const cups = document.getElementById("cups");
+  cups.innerHTML = "";
+
+  const percent = total / DAILY_LIMIT;
+
+  for (let i = 0; i < 5; i++) {
+    const cup = document.createElement("div");
+    cup.className = "cup";
+
+    const fill = document.createElement("div");
+    fill.className = "fill";
+    fill.style.height =
+      Math.max(0, Math.min(1, percent * 5 - i)) * 100 + "%";
+
+    cup.appendChild(fill);
+    cups.appendChild(cup);
+  }
+}
+
+function add(amount) {
+  total += amount;
+  render();
+}
+
+render();
+</script>
+
 </body>
 </html>
