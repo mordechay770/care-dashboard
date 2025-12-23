@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>לוח מעקב אישי</title>
+    <style>
+        :root { --primary-blue: #3498db; --bg-color: #f0f2f5; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background-color: var(--bg-color); text-align: center; margin: 0; padding: 20px; }
+        .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
+        .glass-container { display: flex; justify-content: space-around; margin: 20px 0; }
+        .glass { width: 60px; height: 90px; border: 3px solid #333; border-top: none; position: relative; border-radius: 0 0 10px 10px; background: #fff; overflow: hidden; }
+        .water { position: absolute; bottom: 0; width: 100%; background: var(--primary-blue); transition: height 1s ease-in-out; }
+        .message-area { background: #fff3cd; border: 2px solid #ffeeba; display: none; }
+        .timer { font-size: 2em; color: #d35400; font-weight: bold; }
+        img { max-width: 100%; border-radius: 10px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <div id="msg-card" class="card message-area">
+        <div id="msg-text" style="font-size: 1.5em;"></div>
+        <img id="msg-img" src="" style="display:none;">
+    </div>
+
+    <div class="card">
+        <h2>כמה שתיתי היום?</h2>
+        <div class="glass-container" id="glasses"></div>
+        <p id="drank-summary" style="font-size: 1.2em;"></p>
+    </div>
+
+    <div class="card">
+        <h2>הארוחה הבאה בעוד:</h2>
+        <div id="timer" class="timer">--:--</div>
+    </div>
+
+    <script>
+        // פרטי Airtable - חובה למלא!
+        const TOKEN = 'שלך_כאן';
+        const BASE_ID = 'שלך_כאן';
+        const TABLE_NAME = 'Status'; 
+
+        async function updateDashboard() {
+            try {
+                const response = await fetch(`https://api.airtable.com/v0/${tblV8mVoNlHVfXbwo}/${Status}`, {
+                    headers: { Authorization: `Bearer ${patB4mP3wrsCwp5QU.ef79ab511e1080eae72b4d05ec10b9a899d1502f02632cf7e92d54e783b711d0}` }
+                });
+                const data = await response.json();
+                const record = data.records[0].fields;
+
+                // עדכון מים (יעד 800 מ"ל, 4 כוסות)
+                renderGlasses(record.Total_Drank || 0, 800);
+                
+                // עדכון טיימר
+                if(record.Next_Meal) startTimer(record.Next_Meal);
+
+                // עדכון הודעה
+                if(record.Message) {
+                    document.getElementById('msg-card').style.display = 'block';
+                    document.getElementById('msg-text').innerText = record.Message;
+                    if(record.Image_URL) {
+                        document.getElementById('msg-img').src = record.Image_URL;
+                        document.getElementById('msg-img').style.display = 'inline';
+                    }
+                }
+            } catch (e) { console.error("Error fetching data", e); }
+        }
+
+        function renderGlasses(current, target) {
+            const container = document.getElementById('glasses');
+            container.innerHTML = '';
+            const mlPerGlass = target / 4;
+            for (let i = 0; i < 4; i++) {
+                const glass = document.createElement('div');
+                glass.className = 'glass';
+                const water = document.createElement('div');
+                water.className = 'water';
+                let fill = Math.min(Math.max((current - (i * mlPerGlass)) / mlPerGlass, 0), 1) * 100;
+                water.style.height = fill + '%';
+                glass.appendChild(water);
+                container.appendChild(glass);
+            }
+            document.getElementById('drank-summary').innerText = `שתית ${current} מ"ל מתוך ${target} מ"ל`;
+        }
+
+        function startTimer(endTime) {
+            const target = new Date(endTime).getTime();
+            setInterval(() => {
+                const now = new Date().getTime();
+                const diff = target - now;
+                if (diff < 0) { document.getElementById('timer').innerText = "זמן לאכול!"; return; }
+                const mins = Math.floor(diff / 60000);
+                const secs = Math.floor((diff % 60000) / 1000);
+                document.getElementById('timer').innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }, 1000);
+        }
+
+        updateDashboard();
+        setInterval(updateDashboard, 60000); // רענון כל דקה
+    </script>
+</body>
+</html>
