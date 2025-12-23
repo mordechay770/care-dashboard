@@ -1,5 +1,5 @@
 {
-  "dailyLimit": 1200,
+  "dailyLimit": 1000,
   "tasks": [
     {"time": "08:00", "label": "תרופת בוקר"},
     {"time": "08:30", "label": "תפילת שחרית"},
