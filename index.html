@@ -60,6 +60,10 @@ button {
   background: #2e7df6;
   color: white;
 }
+
+button:active {
+  background: #1e5ec0;
+}
 </style>
 </head>
 
@@ -78,7 +82,7 @@ button {
 </div>
 
 <script>
-const DAILY_LIMIT = 1500;
+const DAILY_LIMIT = 1500; // מכסה יומית
 let total = 0;
 
 function render() {
@@ -89,7 +93,9 @@ function render() {
   cups.innerHTML = "";
 
   const percent = total / DAILY_LIMIT;
+  const overflow = total > DAILY_LIMIT;
 
+  // 5 כוסות רגילות
   for (let i = 0; i < 5; i++) {
     const cup = document.createElement("div");
     cup.className = "cup";
@@ -101,6 +107,20 @@ function render() {
 
     cup.appendChild(fill);
     cups.appendChild(cup);
+  }
+
+  // כוס חריגה אדומה
+  if (overflow) {
+    const extraCup = document.createElement("div");
+    extraCup.className = "cup";
+
+    const redFill = document.createElement("div");
+    redFill.className = "fill";
+    redFill.style.height = "100%";
+    redFill.style.background = "red";
+
+    extraCup.appendChild(redFill);
+    cups.appendChild(extraCup);
   }
 }
 
