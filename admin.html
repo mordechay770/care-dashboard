@@ -2,29 +2,76 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>Admin</title>
+<title>ניהול מערכת</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f4f6f8;
+  padding: 30px;
+  font-size: 22px;
+}
+
+label {
+  display: block;
+  margin-top: 20px;
+}
+
+input {
+  font-size: 22px;
+  padding: 8px;
+  width: 200px;
+}
+
+button {
+  margin-top: 30px;
+  font-size: 26px;
+  padding: 15px 30px;
+}
+</style>
 </head>
+
 <body>
 
-<h1>עדכון מערכת</h1>
+<h1>ניהול שתייה</h1>
 
-<textarea id="json" rows="20" cols="80"></textarea><br>
-<button onclick="update()">עדכן</button>
+<label>
+  יעד שתייה יומי (מ״ל):
+  <input id="limit" type="number">
+</label>
+
+<label>
+  שתייה שבוצעה היום:
+  <input id="total" type="number">
+</label>
+
+<button onclick="save()">עדכן</button>
 
 <script>
 const UPDATE_WEBHOOK = "https://hook.make.com/YYYY";
 
-fetch("config.json?t="+Date.now())
-  .then(r=>r.text())
-  .then(t=>document.getElementById("json").value=t);
-
-function update() {
-  fetch(UPDATE_WEBHOOK,{
-    method:"POST",
-    headers:{'Content-Type':'application/json'},
-    body:document.getElementById("json").value
+fetch("config.json?t=" + Date.now())
+  .then(r => r.json())
+  .then(c => {
+    document.getElementById("limit").value = c.dailyLimit;
+    document.getElementById("total").value = c.totalDrank;
   });
-  alert("נשלח לעדכון");
+
+function save() {
+  const data = {
+    dailyLimit: Number(limit.value),
+    totalDrank: Number(total.value),
+    meals: [],
+    tasks: []
+  };
+
+  fetch(UPDATE_WEBHOOK, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  });
+
+  alert("עודכן");
 }
 </script>
 
