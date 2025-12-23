@@ -1,131 +1,105 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>לוח ניהול רפואי</title>
-    <style>
-        :root { --main-blue: #3498db; --success: #2ecc71; --warning: #e74c3c; --bg: #f8f9fa; }
-        body { font-family: 'Segoe UI', Arial; background: var(--bg); margin: 0; padding: 20px; text-align: center; direction: rtl; }
-        .card { background: white; border-radius: 15px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; max-width: 600px; margin-left: auto; margin-right: auto; }
-        .hebrew-date { font-size: 2.2em; font-weight: bold; color: #2c3e50; }
-        /* תרופות */
-        .med-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; font-size: 1.3em; }
-        .med-item:last-child { border-bottom: none; }
-        .med-time { font-weight: bold; color: var(--main-blue); margin-left: 10px; }
-        .take-btn { background: #eee; border: 2px solid #ccc; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: bold; }
-        .take-btn.done { background: var(--success); color: white; border-color: var(--success); }
-        /* שתייה */
-        .glass-container { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
-        .glass { width: 45px; height: 75px; border: 3px solid #333; border-top: none; position: relative; border-radius: 0 0 10px 10px; overflow: hidden; background: white; }
-        .water { position: absolute; bottom: 0; width: 100%; background: var(--main-blue); transition: height 0.8s; }
-        .btn-drink { padding: 15px 20px; font-size: 1.1em; cursor: pointer; border: none; border-radius: 10px; background: var(--main-blue); color: white; font-weight: bold; margin: 5px; }
-        .timer { font-size: 2.5em; color: #d35400; font-weight: bold; }
-    </style>
-</head>
-<body>
+<style>
+    /* עיצוב נוסף לטיימרים ברשימה */
+    .task-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px;
+        border-bottom: 2px solid #f0f0f0;
+        background: #fff;
+    }
+    .task-info { text-align: right; flex-grow: 1; }
+    .task-name { font-size: 1.5em; font-weight: bold; display: block; }
+    .task-timer { 
+        font-family: monospace; 
+        color: #e67e22; 
+        font-size: 1.2em; 
+        background: #fdf2e9; 
+        padding: 2px 8px; 
+        border-radius: 5px;
+    }
+    .btn-done {
+        margin-right: 15px;
+        padding: 10px 15px;
+        font-size: 1.1em;
+        border-radius: 8px;
+        cursor: pointer;
+        border: 2px solid #2ecc71;
+        background: white;
+        color: #27ae60;
+    }
+    .btn-done.completed {
+        background: #2ecc71;
+        color: white;
+    }
+</style>
 
-    <div class="card">
-        <div id="heb-date" class="hebrew-date"></div>
-        <div id="eng-date" style="color: #7f8c8d;"></div>
-    </div>
+<div class="card">
+    <h2>משימות להיום</h2>
+    <div id="tasks-list"></div>
+</div>
 
-    <div class="card">
-        <h2>תרופות להיום</h2>
-        <div id="meds-list"></div>
-    </div>
+<script>
+    let tasks = [];
 
-    <div class="card">
-        <h2>מצב שתייה</h2>
-        <div class="glass-container" id="glasses"></div>
-        <div id="status-text" style="font-size: 1.3em; font-weight: bold; margin-bottom: 10px;"></div>
-        <button class="btn-drink" onclick="report('drink', 100)">+ 100 מ"ל</button>
-        <button class="btn-drink" onclick="report('drink', 200)">+ 200 מ"ל</button>
-    </div>
+    async function loadTasks() {
+        const res = await fetch('config.json?v=' + Date.now());
+        const config = await res.json();
+        tasks = config.tasks;
+        renderTasks();
+    }
 
-    <div class="card">
-        <h3>הארוחה הבאה:</h3>
-        <div id="timer" class="timer">--:--</div>
-    </div>
-
-    <script>
-        const WEBHOOK_URL = 'כתובת_הוובהוק_שלך_במאייק';
-        let state = { limit: 1000, drank: 0, meds: [] };
-
-        async function init() {
-            try {
-                const res = await fetch('config.json?v=' + Date.now());
-                const config = await res.json();
-                state.limit = config.dailyLimit;
-                state.meds = config.medications;
-                renderMeds();
-                updateUI();
-                updateDates();
-                setupMealTimer(config.meals);
-            } catch (e) { console.error("Load error", e); }
-        }
-
-        function renderMeds() {
-            const list = document.getElementById('meds-list');
-            list.innerHTML = state.meds.map((med, index) => `
-                <div class="med-item">
-                    <span><span class="med-time">${med.time}</span> ${med.name}</span>
-                    <button id="med-${index}" class="take-btn" onclick="takeMed(${index}, '${med.name}')">סמן כנלקח</button>
+    function renderTasks() {
+        const list = document.getElementById('tasks-list');
+        list.innerHTML = tasks.map((task, index) => `
+            <div class="task-item">
+                <div class="task-info">
+                    <span class="task-name">${task.label} בשעה ${task.time}</span>
+                    <span class="task-timer" id="timer-${index}">--:--:--</span>
                 </div>
-            `).join('');
-        }
+                <button class="btn-done" id="btn-${index}" onclick="markAsDone(${index}, '${task.label}')">בוצע</button>
+            </div>
+        `).join('');
+        
+        startTaskTimers();
+    }
 
-        function takeMed(index, name) {
-            const btn = document.getElementById(`med-${index}`);
-            btn.innerText = "✓ נלקח";
-            btn.classList.add('done');
-            btn.disabled = true;
-            report('medication', name);
-        }
-
-        async function report(type, value) {
-            if (type === 'drink') {
-                state.drank += value;
-                updateUI();
-            }
-            // שליחה לוובהוק
-            fetch(WEBHOOK_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify({ type, value, timestamp: new Date().toISOString() })
-            });
-        }
-
-        function updateUI() {
-            const container = document.getElementById('glasses');
-            container.innerHTML = '';
-            for (let i = 0; i < 5; i++) {
-                const waterHeight = Math.min(Math.max((state.drank - (i * (state.limit/5))) / (state.limit/5), 0), 1) * 100;
-                container.innerHTML += `<div class="glass"><div class="water" style="height:${waterHeight}%"></div></div>`;
-            }
-            document.getElementById('status-text').innerText = `${state.drank} / ${state.limit} מ"ל`;
-        }
-
-        function updateDates() {
+    function startTaskTimers() {
+        setInterval(() => {
             const now = new Date();
-            document.getElementById('heb-date').innerText = new Intl.DateTimeFormat('he-IL-u-ca-hebrew', {dateStyle: 'full'}).format(now);
-            document.getElementById('eng-date').innerText = now.toLocaleDateString('he-IL', {dateStyle: 'full'});
-        }
+            const dateStr = now.toISOString().split('T')[0];
 
-        function setupMealTimer(meals) {
-            setInterval(() => {
-                const now = Date.now();
-                const next = meals.map(m => new Date(m).getTime()).filter(m => m > now).sort()[0];
-                const el = document.getElementById('timer');
-                if (!next) { el.innerText = "--:--"; return; }
-                const diff = next - now;
-                const mins = Math.floor(diff / 60000);
-                const secs = Math.floor((diff % 60000) / 1000);
-                el.innerText = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-            }, 1000);
-        }
+            tasks.forEach((task, index) => {
+                const target = new Date(`${dateStr}T${task.time}:00`);
+                const diff = target - now;
+                const timerEl = document.getElementById(`timer-${index}`);
 
-        init();
-    </script>
-</body>
-</html>
+                if (diff > 0) {
+                    const hrs = Math.floor(diff / 3600000);
+                    const mins = Math.floor((diff % 3600000) / 60000);
+                    const secs = Math.floor((diff % 60000) / 1000);
+                    timerEl.innerText = `עוד ${hrs}:${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+                } else {
+                    timerEl.innerText = "זמן המשימה הגיע";
+                    timerEl.style.color = "#e74c3c";
+                }
+            });
+        }, 1000);
+    }
+
+    function markAsDone(index, label) {
+        const btn = document.getElementById(`btn-${index}`);
+        btn.innerText = "✓ בוצע";
+        btn.classList.add('completed');
+        btn.disabled = true;
+        
+        // דיווח לוובהוק
+        fetch(WEBHOOK_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            body: JSON.stringify({ type: 'task_completed', task: label, time: new Date().toISOString() })
+        });
+    }
+
+    loadTasks();
+</script>
