@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<title>שתייה היום</title>
+<title>מעקב שתייה במשך היום</title>
 <style>
 body {
   font-family: Arial, sans-serif;
@@ -27,7 +27,7 @@ h2 { font-size: 36px; margin-top: 40px; }
 <body>
 
 <h1>שתייה היום</h1>
-<div id="instruction">הוראת רופא מומחה: יש לשתות לפי היעד היומי ולעקוב אחר כמות כל כוס</div>
+<div id="instruction">הוראת רופא מומחה: יש להגביל את כמות שתיית הנוזלים, להקפיד לא לשתות מעבר למגבלה היומית ולעקוב אחר כמות כל כוס</div>
 
 <div id="status"></div>
 <div id="overflow"></div>
@@ -39,7 +39,7 @@ h2 { font-size: 36px; margin-top: 40px; }
   <button onclick="add(200)">200 מ״ל</button>
 </div>
 
-<h2>רישום שתייה</h2>
+<h2>הסטוריית שתייה של היום</h2>
 <div id="log"></div>
 
 <script>
@@ -143,7 +143,7 @@ function renderLog() {
   log.forEach(entry => {
     const div = document.createElement("div");
     div.className = "log";
-    div.innerText = `שתה ${entry.amount} מ״ל בשעה ${entry.time}`;
+    div.innerText = `שתיית ${entry.amount} מ״ל בשעה ${entry.time}`;
     box.appendChild(div);
   });
 }
