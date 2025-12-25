@@ -2,168 +2,187 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>מעקב שתייה במשך היום</title>
+
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f2f4f7;
-  text-align: center;
-  padding: 30px;
+body { font-family: Arial, sans-serif; background: #eef3f9; margin:0; padding:20px; text-align:center; }
+h1 { font-size: 34px; margin:5px 0; }
+h2 { font-size:22px; color:#333; margin:5px 0 15px; }
+#datetime { margin-bottom:10px; }
+
+.status-box {
+    background:#ffffff; padding:12px; border-radius:12px; margin-bottom:15px;
+    font-size:24px; font-weight:bold;
 }
-h1 { font-size: 52px; margin-bottom: 10px; }
-#instruction { font-size: 28px; font-weight: bold; margin-bottom: 20px; color: #1a1a1a; }
-#status { font-size: 40px; margin-bottom: 10px; }
-#overflow { font-size: 32px; color: red; margin-bottom: 20px; }
-.cups { display: flex; justify-content: center; gap: 25px; margin-bottom: 40px; }
-.cup { width: 90px; height: 180px; border: 6px solid #000; border-radius: 0 0 25px 25px; background: white; position: relative; }
-.fill { position: absolute; bottom: 0; width: 100%; background: #4da6ff; transition: height 0.3s; }
-.marker { position: absolute; width: 100%; height: 2px; background: #aaa; left: 0; }
-.buttons { display: flex; justify-content: center; gap: 25px; margin-bottom: 30px; }
-button { font-size: 34px; padding: 22px 36px; border-radius: 16px; border: none; background: #2e7df6; color: white; }
-h2 { font-size: 36px; margin-top: 40px; }
-.log { font-size: 26px; background: white; margin: 10px auto; padding: 12px; width: 80%; border-radius: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
+
+#cups { display:flex; justify-content:center; gap:18px; margin:20px 0; }
+.cup-wrapper { text-align:center; }
+.cup { width:90px; height:200px; border:3px solid #333; border-radius:0 0 18px 18px; position:relative; background:white; overflow:hidden; }
+.water { position:absolute; bottom:0; width:100%; background:linear-gradient(#5bb5ff,#1d6fe2); transition:height 0.4s; }
+.mark { position:absolute; width:100%; border-top:1px dashed rgba(0,0,0,0.3); }
+.cup-label { margin-top:6px; font-size:16px; }
+
+.buttons button { font-size:22px; padding:16px 28px; margin:8px; border-radius:14px; border:none; color:white; cursor:pointer; }
+.btn25 { background:#9ecbff; }
+.btn50 { background:#6aaeff; }
+.btn100 { background:#2f7cff; }
+.btn200 { background:#004fc5; }
+
+.history-title { margin-top:25px; font-size:24px; font-weight:bold; }
+.history { margin-top:10px; text-align:right; font-size:18px; }
+.history-item { display:flex; justify-content:space-between; border-bottom:1px solid #ccc; padding:6px 0; }
+.delete { color:red; cursor:pointer; font-weight:bold; }
+
+.toast { position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#2ecc71; color:white; padding:12px 24px; border-radius:10px; font-size:18px; display:none; }
 </style>
 </head>
+
 <body>
+<h1 id="title">טוען...</h1>
+<h2 id="subtitle"></h2>
+<div id="datetime"></div>
 
-<h1>מעקב שתייה במשך היום</h1>
-<div id="instruction">הוראת רופא מומחה: יש להגביל את כמות שתיית הנוזלים, להקפיד לא לשתות מעבר למגבלה היומית ולעקוב אחר כמות כל כוס</div>
+<div class="status-box" id="statusBox"></div>
 
-<div id="status"></div>
-<div id="overflow"></div>
-<div class="cups" id="cups"></div>
+<div id="cups"></div>
 
 <div class="buttons">
-  <button onclick="add(50)">50 מ״ל</button>
-  <button onclick="add(100)">100 מ״ל</button>
-  <button onclick="add(200)">200 מ״ל</button>
+    <button class="btn25" onclick="sendDrink(25)">+25</button>
+    <button class="btn50" onclick="sendDrink(50)">+50</button>
+    <button class="btn100" onclick="sendDrink(100)">+100</button>
+    <button class="btn200" onclick="sendDrink(200)">+200</button>
 </div>
 
-<h2>הסטוריית שתייה של היום</h2>
-<div id="log"></div>
+<div class="history-title">היסטוריית שתייה</div>
+<div class="history" id="history"></div>
+
+<div class="toast" id="toast">✔ הדיווח התקבל</div>
 
 <script>
-const CUP_SIZE = 200;
-let DAILY_LIMIT = 1000;
-let total = 0;
-let log = [];
+const FETCH_WEBHOOK = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";
+const ACTION_WEBHOOK = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs"
+let locked=false;
 
-const INIT_WEBHOOK_URL = "https://hook.integrator.boost.space/n33w53hpsj1ar34x25b9psqwx8sbcj0n";
-const UPDATE_WEBHOOK_URL = "https://hook.integrator.boost.space/uhlqmxm4tzn2rpy04qga5lcip6o5rnbs";
-
-// קריאה ראשונית
-async function initData() {
-  try {
-    const res = await fetch(INIT_WEBHOOK_URL);
-    if (!res.ok) throw new Error("Network response was not ok");
-    const data = await res.json();
-    if (!data) throw new Error("No data returned from webhook");
-
-    total = data.totalDrank || 0;
-    DAILY_LIMIT = data.dailyLimit || 1000;
-    log = data.log || [];
-    render();
-  } catch (err) {
-    console.error("Failed to fetch initial data:", err);
-    // במקרה של כשל, נשאר עם הערכים הקיימים ונמשיך
-    render();
-  }
+function showToast(text) {
+    const t=document.getElementById("toast");
+    t.innerText=text; t.style.display="block";
+    setTimeout(()=>t.style.display="none",2000);
 }
 
-window.addEventListener('load', initData);
+function loadData() {
+    fetch(FETCH_WEBHOOK+"?t="+Date.now())
+        .then(r=>r.json())
+        .then(data=>{
+            document.getElementById("title").innerText=data.title;
+            document.getElementById("subtitle").innerText=data.subtitle;
 
-function render() {
-  document.getElementById("status").innerText = total + " מתוך " + DAILY_LIMIT + " מ״ל";
-  const overflowAmount = total - DAILY_LIMIT;
-  document.getElementById("overflow").innerText = overflowAmount > 0 ? "חריגה: " + overflowAmount + " מ״ל" : "";
-  renderCups();
-  renderLog();
+            const statusBox=document.getElementById("statusBox");
+            statusBox.style.color="black";
+            let over=0;
+            if(data.totalDrank>data.dailyLimit) over=data.totalDrank-data.dailyLimit;
+
+            statusBox.innerText=`שתית היום ${data.totalDrank} מתוך ${data.dailyLimit} מ״ל`+
+                                (over>0?` (חרגת ב־${over} מ״ל)`:"");
+
+            if(over>0) statusBox.style.color="red";
+
+            drawCups(data.totalDrank,data.dailyLimit);
+            drawHistory(data.history.reverse());
+            updateClock();
+        });
 }
 
-function renderCups() {
-  const cups = document.getElementById("cups");
-  cups.innerHTML = "";
-  const numCups = Math.ceil(DAILY_LIMIT / CUP_SIZE);
-  const percent = total / DAILY_LIMIT;
-  const overflow = total > DAILY_LIMIT;
+function drawCups(total, limit) {
+    const el=document.getElementById("cups");
+    el.innerHTML="";
 
-  for (let i = 0; i < numCups; i++) {
-    const cup = document.createElement("div");
-    cup.className = "cup";
+    const cupSize=200;
+    const count=Math.ceil(limit/cupSize);
 
-    for (let y = 10; y < CUP_SIZE; y += 10) {
-      const mark = document.createElement("div");
-      mark.className = "marker";
-      mark.style.bottom = (y / CUP_SIZE * 100) + "%";
-      cup.appendChild(mark);
+    for(let i=0;i<count;i++){
+        const wrap=document.createElement("div"); wrap.className="cup-wrapper";
+        const cup=document.createElement("div"); cup.className="cup";
+
+        for(let ml=20;ml<200;ml+=20){
+            const mark=document.createElement("div"); mark.className="mark";
+            mark.style.bottom=(ml/200*100)+"%";
+            if(ml%100===0) mark.style.borderTop="2px solid rgba(0,0,0,0.6)";
+            cup.appendChild(mark);
+        }
+
+        const water=document.createElement("div"); water.className="water";
+        const filled=Math.max(0,Math.min(1,(total-i*cupSize)/cupSize));
+        water.style.height=(filled*100)+"%";
+        cup.appendChild(water);
+
+        const label=document.createElement("div"); label.className="cup-label"; label.innerText="200 מ״ל";
+        wrap.appendChild(cup); wrap.appendChild(label); el.appendChild(wrap);
     }
 
-    const label = document.createElement("div");
-    label.style.position = "absolute";
-    label.style.bottom = "-25px";
-    label.style.width = "100%";
-    label.style.textAlign = "center";
-    label.style.fontWeight = "bold";
-    label.innerText = "200 מ״ל";
-    cup.appendChild(label);
+    if(total>limit){
+        const over=total-limit;
+        const wrap=document.createElement("div"); wrap.className="cup-wrapper";
+        const cup=document.createElement("div"); cup.className="cup"; cup.style.borderColor="red";
 
-    const fill = document.createElement("div");
-    fill.className = "fill";
-    fill.style.height = Math.max(0, Math.min(1, percent * numCups - i)) * 100 + "%";
-    cup.appendChild(fill);
+        const water=document.createElement("div"); water.className="water"; water.style.background="red";
+        const filled=Math.min(1,over/cupSize);
+        water.style.height=(filled*100)+"%";
+        cup.appendChild(water); wrap.appendChild(cup);
 
-    cups.appendChild(cup);
-  }
-
-  if (overflow) {
-    const extraCup = document.createElement("div");
-    extraCup.className = "cup";
-    const redFill = document.createElement("div");
-    redFill.className = "fill";
-    redFill.style.height = "100%";
-    redFill.style.background = "red";
-    extraCup.appendChild(redFill);
-
-    const label = document.createElement("div");
-    label.style.position = "absolute";
-    label.style.bottom = "-25px";
-    label.style.width = "100%";
-    label.style.textAlign = "center";
-    label.style.fontWeight = "bold";
-    label.innerText = "200 מ״ל";
-    extraCup.appendChild(label);
-
-    cups.appendChild(extraCup);
-  }
+        const label=document.createElement("div"); label.className="cup-label";
+        label.innerText=`${over} מ״ל חריגה`; wrap.appendChild(label);
+        el.appendChild(wrap);
+    }
 }
 
-function renderLog() {
-  const box = document.getElementById("log");
-  box.innerHTML = "";
-  log.forEach(entry => {
-    const div = document.createElement("div");
-    div.className = "log";
-    div.innerText = `שתיית ${entry.amount} מ״ל בשעה ${entry.time}`;
-    box.appendChild(div);
-  });
+function sendDrink(amount){
+    if(locked) return;
+    locked=true;
+
+    fetch(ACTION_WEBHOOK,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"add",amount,timestamp:new Date().toISOString()})
+    }).then(()=>{
+        showToast("הדיווח התקבל");
+        setTimeout(()=>{
+            locked=false; loadData();
+        },1500);
+    });
 }
 
-function add(amount) {
-  total += amount;
-  const now = new Date();
-  const time = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
-  const date = now.getFullYear() + "-" + (now.getMonth()+1).toString().padStart(2,'0') + "-" + now.getDate().toString().padStart(2,'0');
-
-  log.unshift({ amount, time });
-  render();
-
-  fetch(UPDATE_WEBHOOK_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ amount: amount, date: date, time: time })
-  }).catch(err => console.error("Update Webhook failed:", err));
+function drawHistory(list){
+    const box=document.getElementById("history"); box.innerHTML="";
+    list.forEach(row=>{
+        const div=document.createElement("div"); div.className="history-item";
+        div.innerHTML=`<span>${row.time} – ${row.amount} מ״ל</span>
+                       <span class="delete" onclick="deleteRow('${row.record_id}')">❌</span>`;
+        box.appendChild(div);
+    });
 }
+
+function deleteRow(id){
+    if(!confirm("למחוק את הדיווח?")) return;
+
+    fetch(ACTION_WEBHOOK,{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:"delete",record_id:id})
+    }).then(()=>{
+        showToast("הדיווח נמחק");
+        setTimeout(loadData,1200);
+    });
+}
+
+function updateClock(){
+    const now=new Date();
+    document.getElementById("datetime").innerText=
+        now.toLocaleDateString("he-IL")+" | "+now.toLocaleTimeString("he-IL");
+}
+
+loadData();
+setInterval(loadData,60000);
 </script>
-
 </body>
 </html>
