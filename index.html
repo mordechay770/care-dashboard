@@ -44,7 +44,7 @@ h2 { font-size: 36px; margin-top: 40px; }
 
 <script>
 const CUP_SIZE = 200;
-let DAILY_LIMIT = 1000;
+let DAILY_LIMIT = 800;
 let total = 0;
 let log = [];
 
@@ -60,7 +60,7 @@ async function initData() {
     if (!data) throw new Error("No data returned from webhook");
 
     total = data.totalDrank || 0;
-    DAILY_LIMIT = data.dailyLimit || 1000;
+    DAILY_LIMIT = data.dailyLimit || 800;
     log = data.log || [];
     render();
   } catch (err) {
